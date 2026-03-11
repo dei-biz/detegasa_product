@@ -1,8 +1,12 @@
-"""Product specification schemas — based on DETEGASA OWS data sheets."""
+"""Product specification schemas — multi-family support via discriminated union."""
 
-from pydantic import BaseModel, Field, field_validator
+from __future__ import annotations
 
-from src.schemas.common import MaterialSpec, MeasuredValue
+from typing import Annotated, Literal, Union
+
+from pydantic import BaseModel, Discriminator, Field, Tag, field_validator
+
+from src.schemas.common import CertificationSpec, MaterialSpec, MeasuredValue
 
 
 # Valid component types extracted from real DETEGASA data sheets
@@ -70,19 +74,48 @@ class ComponentSpec(BaseModel):
         return normalized
 
 
-class ProductPerformance(BaseModel):
-    """Overall product performance characteristics."""
+# ── Performance schemas per product family ────────────────────────────────────
+
+
+class BasePerformance(BaseModel):
+    """Common performance fields shared by all product families."""
 
     service: str = Field(..., description="Service description: 'Bilge water separation'")
     capacity: MeasuredValue = Field(..., description="Flow capacity")
-    oil_input_max_ppm: int = Field(..., description="Maximum oil content at inlet (ppm)")
-    oil_output_max_ppm: int = Field(..., description="Maximum oil content at outlet (ppm)")
     design_pressure: MeasuredValue = Field(..., description="Design pressure")
     design_temperature: MeasuredValue = Field(..., description="Design temperature")
     operation_mode: str = Field(
         ...,
         description="Operation mode: 'continuous' or 'intermittent'",
     )
+
+
+class OWSPerformance(BasePerformance):
+    """OWS — Oily Water Separator performance."""
+
+    family: Literal["OWS"] = "OWS"
+    oil_input_max_ppm: int = Field(..., description="Maximum oil content at inlet (ppm)")
+    oil_output_max_ppm: int = Field(..., description="Maximum oil content at outlet (ppm)")
+
+
+class GWTPerformance(BasePerformance):
+    """GWT — Grey Water Treatment performance (future)."""
+
+    family: Literal["GWT"] = "GWT"
+    bod_input_mg_l: float | None = Field(default=None, description="BOD at inlet (mg/L)")
+    bod_output_mg_l: float | None = Field(default=None, description="BOD at outlet (mg/L)")
+    tss_input_mg_l: float | None = Field(default=None, description="TSS at inlet (mg/L)")
+    tss_output_mg_l: float | None = Field(default=None, description="TSS at outlet (mg/L)")
+
+
+# Discriminated union — routes by "family" field
+ProductPerformance = Annotated[
+    Union[
+        Annotated[OWSPerformance, Tag("OWS")],
+        Annotated[GWTPerformance, Tag("GWT")],
+    ],
+    Discriminator("family"),
+]
 
 
 class ProductSpec(BaseModel):
@@ -97,9 +130,9 @@ class ProductSpec(BaseModel):
     model: str = Field(..., description="Product model designation")
     revision: str = Field(default="", description="Document revision letter")
     performance: ProductPerformance
-    certifications: list[str] = Field(
+    certifications: list[CertificationSpec] = Field(
         default_factory=list,
-        description="List of certifications: 'IMO MEPC 107(49)', 'ABS', etc.",
+        description="Standards, certifications, and design codes with applicability status",
     )
     components: list[ComponentSpec] = Field(
         default_factory=list,

@@ -4,6 +4,9 @@ import pytest
 from pydantic import ValidationError
 
 from src.schemas.common import (
+    ApplicabilityStatus,
+    CertificationSpec,
+    CertType,
     ComplianceStatus,
     ConnectionSpec,
     MaterialSpec,
@@ -16,7 +19,13 @@ from src.schemas.compliance import (
     ComplianceSummary,
     CostImpact,
 )
-from src.schemas.product import ComponentSpec, ProductPerformance, ProductSpec
+from src.schemas.product import (
+    BasePerformance,
+    ComponentSpec,
+    GWTPerformance,
+    OWSPerformance,
+    ProductSpec,
+)
 from src.schemas.tender import (
     ProcessRequirement,
     TenderMetadata,
@@ -62,6 +71,109 @@ class TestConnectionSpec:
         conn = ConnectionSpec(type="Flanged", size="DN50", rating="PN40")
         assert conn.type == "Flanged"
         assert conn.rating == "PN40"
+
+
+# ── Certification schemas ────────────────────────────────────────────────────
+
+
+class TestCertificationSpec:
+    def test_full_certification(self):
+        """Test a fully populated certification (IMO type-approval)."""
+        from datetime import date
+
+        cert = CertificationSpec(
+            standard_code="IMO MEPC 107(49)",
+            standard_title="Guidelines for Oil-Water Separators",
+            cert_type=CertType.REGULATORY,
+            applicability=ApplicabilityStatus.CERTIFIED,
+            issuing_body="ABS",
+            certificate_no="TAC-2024-00123",
+            valid_from=date(2024, 3, 15),
+            valid_until=date(2029, 3, 14),
+            scope="OWS 1-5 m3/h bilge water separators",
+            notes="Renewed March 2024",
+        )
+        assert cert.standard_code == "IMO MEPC 107(49)"
+        assert cert.cert_type == CertType.REGULATORY
+        assert cert.applicability == ApplicabilityStatus.CERTIFIED
+        assert cert.valid_until == date(2029, 3, 14)
+
+    def test_minimal_certification(self):
+        """Only mandatory fields: code, type, applicability."""
+        cert = CertificationSpec(
+            standard_code="ASME VIII Div.1",
+            cert_type=CertType.DESIGN_CODE,
+            applicability=ApplicabilityStatus.COMPLIANT,
+        )
+        assert cert.issuing_body == ""
+        assert cert.certificate_no == ""
+        assert cert.valid_until is None
+
+    def test_pending_certification(self):
+        """INMETRO pending — common in Petrobras bids."""
+        cert = CertificationSpec(
+            standard_code="INMETRO",
+            cert_type=CertType.COUNTRY,
+            applicability=ApplicabilityStatus.PENDING,
+            notes="Certification process started Q1 2025",
+        )
+        assert cert.applicability == ApplicabilityStatus.PENDING
+        assert "Q1 2025" in cert.notes
+
+    def test_not_applicable(self):
+        """ATEX not applicable for non-hazardous area."""
+        cert = CertificationSpec(
+            standard_code="ATEX 2014/34/EU",
+            cert_type=CertType.HAZARDOUS_AREA,
+            applicability=ApplicabilityStatus.NOT_APPLICABLE,
+            notes="Equipment installed in non-hazardous engine room",
+        )
+        assert cert.applicability == ApplicabilityStatus.NOT_APPLICABLE
+
+    def test_potentially_applicable(self):
+        """Standard that may or may not apply depending on project."""
+        cert = CertificationSpec(
+            standard_code="IECEx",
+            cert_type=CertType.HAZARDOUS_AREA,
+            applicability=ApplicabilityStatus.POTENTIALLY_APPLICABLE,
+            notes="Depends on area classification at installation site",
+        )
+        assert cert.applicability == ApplicabilityStatus.POTENTIALLY_APPLICABLE
+
+    def test_expired(self):
+        """Certificate that has lapsed."""
+        from datetime import date
+
+        cert = CertificationSpec(
+            standard_code="DNV GL",
+            cert_type=CertType.CLASS_SOCIETY,
+            applicability=ApplicabilityStatus.EXPIRED,
+            issuing_body="DNV",
+            certificate_no="TAP-2019-456",
+            valid_until=date(2024, 6, 30),
+            notes="Renewal pending",
+        )
+        assert cert.applicability == ApplicabilityStatus.EXPIRED
+
+    def test_all_cert_types_are_strings(self):
+        """Enums serialize to strings for JSON."""
+        for ct in CertType:
+            assert isinstance(ct.value, str)
+        for ap in ApplicabilityStatus:
+            assert isinstance(ap.value, str)
+
+    def test_from_dict(self):
+        """Verify CertificationSpec works from dict/JSON input."""
+        data = {
+            "standard_code": "ISO 9001:2015",
+            "cert_type": "quality",
+            "applicability": "certified",
+            "issuing_body": "TÜV Rheinland",
+            "certificate_no": "QMS-2023-789",
+        }
+        cert = CertificationSpec.model_validate(data)
+        assert cert.cert_type == CertType.QUALITY
+        assert cert.applicability == ApplicabilityStatus.CERTIFIED
 
 
 # ── Product schemas ──────────────────────────────────────────────────────────
@@ -131,7 +243,7 @@ class TestProductSpec:
             manufacturer="DETEGASA",
             model="OWS-5",
             revision="C",
-            performance=ProductPerformance(
+            performance=OWSPerformance(
                 service="Bilge water separation",
                 capacity=MeasuredValue(value=5.0, unit="m3/h"),
                 oil_input_max_ppm=500,
@@ -140,7 +252,27 @@ class TestProductSpec:
                 design_temperature=MeasuredValue(value=60, unit="C"),
                 operation_mode="intermittent",
             ),
-            certifications=["IMO MEPC 107(49)", "MARPOL Annex I Reg.21", "ABS"],
+            certifications=[
+                CertificationSpec(
+                    standard_code="IMO MEPC 107(49)",
+                    cert_type=CertType.REGULATORY,
+                    applicability=ApplicabilityStatus.CERTIFIED,
+                    issuing_body="IMO",
+                    certificate_no="TAC-2024-001",
+                    scope="OWS 1-5 m3/h",
+                ),
+                CertificationSpec(
+                    standard_code="MARPOL Annex I Reg.21",
+                    cert_type=CertType.REGULATORY,
+                    applicability=ApplicabilityStatus.COMPLIANT,
+                ),
+                CertificationSpec(
+                    standard_code="ABS",
+                    cert_type=CertType.CLASS_SOCIETY,
+                    applicability=ApplicabilityStatus.CERTIFIED,
+                    issuing_body="ABS",
+                ),
+            ],
             components=[
                 ComponentSpec(
                     tag="P1",
@@ -151,8 +283,49 @@ class TestProductSpec:
         )
         assert product.product_family == "OWS"
         assert product.performance.capacity.value == 5.0
-        assert len(product.certifications) == 3
-        assert len(product.components) == 1
+        assert isinstance(product.performance, OWSPerformance)
+        assert product.performance.oil_output_max_ppm == 15
+
+    def test_gwt_product(self):
+        """Test GWT product with discriminated union."""
+        product = ProductSpec(
+            product_id="GWT-001",
+            product_family="GWT",
+            model="GWT-10",
+            performance=GWTPerformance(
+                service="Grey water treatment",
+                capacity=MeasuredValue(value=10.0, unit="m3/h"),
+                design_pressure=MeasuredValue(value=4.0, unit="barg"),
+                design_temperature=MeasuredValue(value=45, unit="C"),
+                operation_mode="continuous",
+                bod_input_mg_l=250.0,
+                bod_output_mg_l=25.0,
+            ),
+        )
+        assert isinstance(product.performance, GWTPerformance)
+        assert product.performance.family == "GWT"
+        assert product.performance.bod_input_mg_l == 250.0
+
+    def test_discriminated_union_from_dict(self):
+        """Test that JSON/dict with 'family' field routes correctly."""
+        data = {
+            "product_id": "OWS-001",
+            "model": "OWS-5",
+            "performance": {
+                "family": "OWS",
+                "service": "Bilge water separation",
+                "capacity": {"value": 5.0, "unit": "m3/h"},
+                "oil_input_max_ppm": 500,
+                "oil_output_max_ppm": 15,
+                "design_pressure": {"value": 6.7, "unit": "barg"},
+                "design_temperature": {"value": 60, "unit": "C"},
+                "operation_mode": "intermittent",
+            },
+        }
+        product = ProductSpec.model_validate(data)
+        assert isinstance(product.performance, OWSPerformance)
+        assert product.performance.oil_input_max_ppm == 500
+        assert product.performance.oil_output_max_ppm == 15
 
 
 # ── Tender schemas ───────────────────────────────────────────────────────────

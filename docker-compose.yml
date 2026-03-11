@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: sentinas
       POSTGRES_PASSWORD: ${DB_PASSWORD:-sentinas_dev}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./init-db:/docker-entrypoint-initdb.d

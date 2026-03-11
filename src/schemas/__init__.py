@@ -1,4 +1,7 @@
 from src.schemas.common import (
+    ApplicabilityStatus,
+    CertificationSpec,
+    CertType,
     ComplianceStatus,
     ConnectionSpec,
     MaterialSpec,
@@ -11,7 +14,13 @@ from src.schemas.compliance import (
     ComplianceSummary,
     CostImpact,
 )
-from src.schemas.product import ComponentSpec, ProductPerformance, ProductSpec
+from src.schemas.product import (
+    BasePerformance,
+    ComponentSpec,
+    GWTPerformance,
+    OWSPerformance,
+    ProductSpec,
+)
 from src.schemas.tender import (
     ProcessRequirement,
     TenderMetadata,
@@ -24,11 +33,16 @@ __all__ = [
     "MeasuredValue",
     "MaterialSpec",
     "ConnectionSpec",
+    "CertType",
+    "ApplicabilityStatus",
+    "CertificationSpec",
     "ComplianceStatus",
     "RiskLevel",
     # product
     "ComponentSpec",
-    "ProductPerformance",
+    "BasePerformance",
+    "OWSPerformance",
+    "GWTPerformance",
     "ProductSpec",
     # tender
     "TenderMetadata",
