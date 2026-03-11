@@ -64,14 +64,29 @@ class ComponentSpec(BaseModel):
     @field_validator("type")
     @classmethod
     def validate_type(cls, v: str) -> str:
-        """Normalize and validate component type."""
+        """Normalize and validate component type.
+
+        Handles compound types from LLM output like "solenoid valve" → "valve",
+        "progressive cavity pump" → "pump", "level switch" → "switch".
+        """
         normalized = v.lower().strip().replace(" ", "_")
-        if normalized not in VALID_COMPONENT_TYPES:
-            raise ValueError(
-                f"Unknown component type: '{v}'. "
-                f"Valid types: {sorted(VALID_COMPONENT_TYPES)}"
-            )
-        return normalized
+        if normalized in VALID_COMPONENT_TYPES:
+            return normalized
+
+        # Try matching the last word (e.g. "solenoid_valve" → "valve")
+        parts = normalized.split("_")
+        if parts[-1] in VALID_COMPONENT_TYPES:
+            return parts[-1]
+
+        # Try matching any word in the compound type
+        for part in parts:
+            if part in VALID_COMPONENT_TYPES:
+                return part
+
+        raise ValueError(
+            f"Unknown component type: '{v}'. "
+            f"Valid types: {sorted(VALID_COMPONENT_TYPES)}"
+        )
 
 
 # ── Performance schemas per product family ────────────────────────────────────

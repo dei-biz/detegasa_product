@@ -6,8 +6,9 @@ from pydantic import BaseModel, Field
 # Cost per million tokens (input, output) by model
 MODEL_PRICING: dict[str, tuple[float, float]] = {
     # Anthropic
-    "claude-sonnet-4-5-20250514": (3.00, 15.00),
-    "claude-haiku-4-5-20250514": (0.80, 4.00),
+    "claude-sonnet-4-5-20250929": (3.00, 15.00),
+    "claude-sonnet-4-6": (3.00, 15.00),
+    "claude-haiku-4-5-20251001": (0.80, 4.00),
     # OpenAI
     "gpt-4o": (2.50, 10.00),
     "gpt-4o-mini": (0.15, 0.60),
@@ -15,13 +16,13 @@ MODEL_PRICING: dict[str, tuple[float, float]] = {
 
 # Default models per provider
 DEFAULT_MODELS = {
-    "anthropic": "claude-sonnet-4-5-20250514",
+    "anthropic": "claude-sonnet-4-5-20250929",
     "openai": "gpt-4o",
 }
 
 # Fast/cheap models per provider (for classification tasks)
 FAST_MODELS = {
-    "anthropic": "claude-haiku-4-5-20250514",
+    "anthropic": "claude-haiku-4-5-20251001",
     "openai": "gpt-4o-mini",
 }
 

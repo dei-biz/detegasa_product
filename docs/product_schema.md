@@ -444,3 +444,63 @@ PDF/Excel del producto
 ```
 
 Los documentos fuente de DETEGASA (data sheets I-FD-*, manuales MA-*) contienen toda la informacion necesaria para poblar un `ProductSpec` completo, incluyendo los datos de rendimiento, componentes con sus materiales, especificaciones electricas/mecanicas, y las certificaciones con sus numeros y alcances.
+
+---
+
+## 8. Modelos LLM recomendados
+
+### 8.1 Estrategia de dos niveles
+
+Para optimizar coste y calidad, se recomienda usar modelos diferentes segun la complejidad de la tarea de extraccion:
+
+| Tarea | Modelo principal | Alternativa | Coste in/out (por M tokens) | Razon |
+|-------|-----------------|-------------|:---------------------------:|-------|
+| **Componentes** | `claude-sonnet-4-5` | `gpt-4o` | $3.00 / $15.00 | Extraccion compleja con campos nested (materiales, mecanica, electrica) |
+| **Performance** | `claude-sonnet-4-5` | `gpt-4o` | $3.00 / $15.00 | Requiere entender contexto tecnico maritimo y mapear a familia correcta |
+| **Certificaciones** | `claude-sonnet-4-5` | `gpt-4o` | $3.00 / $15.00 | Debe interpretar contexto regulatorio y determinar applicability status |
+| **Metadata** | `claude-haiku-4-5` | `gpt-4o-mini` | $0.80 / $4.00 | Tarea simple: pocos campos, texto de portada |
+| **Requirements** | `claude-sonnet-4-5` | `gpt-4o` | $3.00 / $15.00 | Debe distinguir SHALL/MUST (mandatory) vs SHOULD/MAY (optional) |
+| **TBT -> Requirements** | *Sin LLM* | — | $0.00 | Conversion deterministica — los datos ya estan estructurados en el Excel |
+
+### 8.2 Comparacion de modelos disponibles
+
+| Modelo | Proveedor | Input ($/M) | Output ($/M) | Calidad extraccion | Velocidad | Uso recomendado |
+|--------|-----------|:-----------:|:------------:|:------------------:|:---------:|-----------------|
+| `claude-sonnet-4-5` | Anthropic | $3.00 | $15.00 | Excelente | Media | Extraccion principal (componentes, performance, certs) |
+| `claude-haiku-4-5` | Anthropic | $0.80 | $4.00 | Buena | Rapida | Tareas simples (metadata, clasificacion) |
+| `gpt-4o` | OpenAI | $2.50 | $10.00 | Excelente | Media | Alternativa al Sonnet, algo mas barato en output |
+| `gpt-4o-mini` | OpenAI | $0.15 | $0.60 | Buena | Rapida | Alternativa ultra-barata para metadata/clasificacion |
+
+### 8.3 Estimacion de coste por documento
+
+Para un data sheet tipico de DETEGASA (~56 paginas, ~50K chars de texto limpio):
+
+| Fase | Llamadas LLM | Tokens aprox. (in+out) | Coste estimado (Sonnet) |
+|------|:------------:|:---------------------:|:-----------------------:|
+| Componentes (17 chunks) | ~17 | ~60K in + ~10K out | ~$0.33 |
+| Performance | 1 | ~5K in + ~1K out | ~$0.03 |
+| Certificaciones | 1 | ~5K in + ~1K out | ~$0.03 |
+| **Total producto** | **~19** | **~70K in + ~12K out** | **~$0.39** |
+
+Para un Material Requisition del cliente (~100 paginas):
+
+| Fase | Llamadas LLM | Tokens aprox. (in+out) | Coste estimado (Sonnet) |
+|------|:------------:|:---------------------:|:-----------------------:|
+| Metadata | 1 | ~3K in + ~0.5K out | ~$0.02 |
+| Process requirements | 1 | ~5K in + ~1K out | ~$0.03 |
+| Requirements (20 chunks) | ~20 | ~80K in + ~15K out | ~$0.47 |
+| **Total tender** | **~22** | **~88K in + ~16.5K out** | **~$0.51** |
+
+| Fase | Coste |
+|------|:-----:|
+| TBT (deterministic) | $0.00 |
+| **Total por proyecto** | **~$0.90** |
+
+> **Nota**: Los costes son estimaciones conservadoras. El coste real depende del largo del documento y la densidad de contenido tecnico. El script `scripts/e2e_extraction_test.py` reporta costes reales por llamada.
+
+### 8.4 Recomendacion
+
+1. **Empezar con Claude Sonnet 4.5 para todo** — consistencia y maxima calidad
+2. **Optimizar gradualmente** bajando metadata y clasificacion a Haiku cuando se valide que funciona
+3. **Considerar GPT-4o** como fallback si hay problemas de disponibilidad con Anthropic
+4. **GPT-4o-mini** solo para tareas de clasificacion/triaje donde la precision no es critica

@@ -35,7 +35,7 @@ class TestLLMResponse:
 
 class TestCalculateCost:
     def test_claude_sonnet(self):
-        cost = calculate_cost("claude-sonnet-4-5-20250514", 1000, 500)
+        cost = calculate_cost("claude-sonnet-4-5-20250929", 1000, 500)
         # (1000 * 3.00 + 500 * 15.00) / 1_000_000 = 0.0105
         assert abs(cost - 0.0105) < 0.0001
 
@@ -116,5 +116,5 @@ class TestFactory:
             anthropic_api_key="sk-ant-test",
             default_llm_provider="anthropic",
         )
-        adapter = create_llm_adapter(settings=settings, model="claude-haiku-4-5-20250514")
-        assert adapter.model == "claude-haiku-4-5-20250514"
+        adapter = create_llm_adapter(settings=settings, model="claude-haiku-4-5-20251001")
+        assert adapter.model == "claude-haiku-4-5-20251001"
