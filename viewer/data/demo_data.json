@@ -1,0 +1,325 @@
+{
+  "run": {
+    "type": "compliance",
+    "timestamp": "20260312_160000",
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-5-20250929",
+    "product_source": "20260312_143354_e2e_anthropic_ocr.json",
+    "tbt_source": "Technical Bid Evaluation Table(TBT).xlsx",
+    "eval_time_s": 38.7,
+    "llm_cost": 0.0312,
+    "llm_calls": 12
+  },
+  "result": {
+    "comparison_id": "CMP-DEMO0001",
+    "product_id": "OWS 5 m3/h Bilge Water Separator",
+    "tender_id": "FPSO P-80 Buzios — KSL/Petrobras",
+    "overall_score": 74.2,
+    "items": [
+      {
+        "requirement_id": "TBT-004",
+        "category": "process",
+        "requirement_text": "Flow capacity of OWS",
+        "product_value": "5.0 m3/h",
+        "tender_value": "5 m3/h",
+        "status": "compliant",
+        "gap_description": null,
+        "risk_level": "low",
+        "source_section": "4.1"
+      },
+      {
+        "requirement_id": "TBT-005",
+        "category": "process",
+        "requirement_text": "Design pressure of separator vessel",
+        "product_value": "4.0 barg",
+        "tender_value": "4 barg",
+        "status": "compliant",
+        "gap_description": null,
+        "risk_level": "low",
+        "source_section": "4.2"
+      },
+      {
+        "requirement_id": "TBT-006",
+        "category": "process",
+        "requirement_text": "Oil content at outlet (maximum)",
+        "product_value": "15 ppm",
+        "tender_value": "15 ppm",
+        "status": "compliant",
+        "gap_description": null,
+        "risk_level": "low",
+        "source_section": "4.3"
+      },
+      {
+        "requirement_id": "TBT-007",
+        "category": "process",
+        "requirement_text": "Design temperature",
+        "product_value": "65.0 C",
+        "tender_value": "65 C",
+        "status": "compliant",
+        "gap_description": null,
+        "risk_level": "low",
+        "source_section": "4.4"
+      },
+      {
+        "requirement_id": "TBT-010",
+        "category": "process",
+        "requirement_text": "Test pressure (hydrostatic)",
+        "product_value": "4.0 barg",
+        "tender_value": "6 barg",
+        "status": "non_compliant",
+        "gap_description": "Product offers 4.0 barg but 6 barg is required (gap: 2.00 barg)",
+        "risk_level": "high",
+        "source_section": "4.5"
+      },
+      {
+        "requirement_id": "TBT-015",
+        "category": "material",
+        "requirement_text": "Wetted parts material — separator body and internals",
+        "product_value": "SS 316L",
+        "tender_value": "SS 316L minimum",
+        "status": "compliant",
+        "gap_description": null,
+        "risk_level": "low",
+        "source_section": "5.1"
+      },
+      {
+        "requirement_id": "TBT-016",
+        "category": "material",
+        "requirement_text": "Pump body and rotor material",
+        "product_value": "SS 316L (body), Duplex 2205 (rotor)",
+        "tender_value": "Duplex 2205 or superior",
+        "status": "partial",
+        "gap_description": "Pump body is SS 316L (rank 45) while Duplex 2205 (rank 50) is required. Rotor meets requirement.",
+        "risk_level": "medium",
+        "source_section": "5.2"
+      },
+      {
+        "requirement_id": "TBT-020",
+        "category": "material",
+        "requirement_text": "Piping material for oily water service",
+        "product_value": null,
+        "tender_value": "Super Duplex 2507",
+        "status": "clarification_needed",
+        "gap_description": "No piping material specification found in product data",
+        "risk_level": "medium",
+        "source_section": "5.3"
+      },
+      {
+        "requirement_id": "TBT-025",
+        "category": "certification",
+        "requirement_text": "IMO type approval certificate for OWS",
+        "product_value": "IMO MEPC 107(49) (certified) — ABS type approval",
+        "tender_value": "IMO MEPC 107(49)",
+        "status": "compliant",
+        "gap_description": null,
+        "risk_level": "low",
+        "source_section": "6.1"
+      },
+      {
+        "requirement_id": "TBT-026",
+        "category": "certification",
+        "requirement_text": "MARPOL Annex I compliance",
+        "product_value": "IMO MEPC 107(49) (certified)",
+        "tender_value": "MARPOL Annex I",
+        "status": "compliant",
+        "gap_description": null,
+        "risk_level": "low",
+        "source_section": "6.2"
+      },
+      {
+        "requirement_id": "TBT-027",
+        "category": "certification",
+        "requirement_text": "ATEX certification for hazardous area Zone 1",
+        "product_value": "ATEX 2014/34/EU (pending)",
+        "tender_value": "ATEX Zone 1",
+        "status": "partial",
+        "gap_description": "ATEX certification is pending — not yet issued",
+        "risk_level": "high",
+        "source_section": "6.3"
+      },
+      {
+        "requirement_id": "TBT-028",
+        "category": "certification",
+        "requirement_text": "INMETRO certification for Brazil installation",
+        "product_value": null,
+        "tender_value": "INMETRO certified",
+        "status": "non_compliant",
+        "gap_description": "No INMETRO certification found. Product has 6 certifications but none cover INMETRO.",
+        "risk_level": "disqualifying",
+        "source_section": "6.4"
+      },
+      {
+        "requirement_id": "TBT-035",
+        "category": "electrical",
+        "requirement_text": "Supply voltage for all electrical equipment",
+        "product_value": "440V AC",
+        "tender_value": "440V / 60Hz / 3-phase",
+        "status": "compliant",
+        "gap_description": null,
+        "risk_level": "low",
+        "source_section": "7.1"
+      },
+      {
+        "requirement_id": "TBT-036",
+        "category": "electrical",
+        "requirement_text": "IP protection rating for motors and junction boxes",
+        "product_value": null,
+        "tender_value": "IP56 minimum",
+        "status": "clarification_needed",
+        "gap_description": "IP rating not found in product electrical specifications",
+        "risk_level": "medium",
+        "source_section": "7.2"
+      },
+      {
+        "requirement_id": "TBT-040",
+        "category": "instrumentation",
+        "requirement_text": "Oil content monitor (OCM) with 15 ppm alarm",
+        "product_value": "OCM with 0-100 ppm range, alarm at 15 ppm",
+        "tender_value": "OCM with 15 ppm alarm setpoint",
+        "status": "compliant",
+        "gap_description": null,
+        "risk_level": "low",
+        "source_section": "8.1"
+      },
+      {
+        "requirement_id": "TBT-045",
+        "category": "documentation",
+        "requirement_text": "Operating and maintenance manual in English and Portuguese",
+        "product_value": null,
+        "tender_value": "English + Portuguese",
+        "status": "clarification_needed",
+        "gap_description": "Product documentation language availability not specified in data sheet",
+        "risk_level": "low",
+        "source_section": "9.1"
+      },
+      {
+        "requirement_id": "TBT-050",
+        "category": "testing",
+        "requirement_text": "Factory Acceptance Test (FAT) with client witness",
+        "product_value": null,
+        "tender_value": "FAT required — client witness",
+        "status": "not_applicable",
+        "gap_description": null,
+        "risk_level": "low",
+        "source_section": "10.1"
+      },
+      {
+        "requirement_id": "TBT-055",
+        "category": "commercial",
+        "requirement_text": "Delivery lead time from order",
+        "product_value": null,
+        "tender_value": "16 weeks maximum",
+        "status": "not_applicable",
+        "gap_description": null,
+        "risk_level": "low",
+        "source_section": "11.1"
+      },
+      {
+        "requirement_id": "TBT-060",
+        "category": "spares",
+        "requirement_text": "2-year commissioning spares package",
+        "product_value": null,
+        "tender_value": "Required per DETEGASA standard list",
+        "status": "clarification_needed",
+        "gap_description": "Spares package details not found in product data",
+        "risk_level": "low",
+        "source_section": "12.1"
+      },
+      {
+        "requirement_id": "TBT-065",
+        "category": "process",
+        "requirement_text": "Maximum noise level at 1m distance",
+        "product_value": "75 dB(A)",
+        "tender_value": "85 dB(A)",
+        "status": "compliant",
+        "gap_description": null,
+        "risk_level": "low",
+        "source_section": "4.8"
+      },
+      {
+        "requirement_id": "TBT-070",
+        "category": "coating",
+        "requirement_text": "External painting system per NORSOK M-501",
+        "product_value": null,
+        "tender_value": "NORSOK M-501 System 1",
+        "status": "clarification_needed",
+        "gap_description": "Painting specification not found in product data",
+        "risk_level": "medium",
+        "source_section": "13.1"
+      },
+      {
+        "requirement_id": "TBT-071",
+        "category": "general",
+        "requirement_text": "Equipment suitable for tropical marine environment",
+        "product_value": "Design temperature 65 C, marine-grade materials",
+        "tender_value": "Tropical marine, offshore FPSO",
+        "status": "compliant",
+        "gap_description": null,
+        "risk_level": "low",
+        "source_section": "3.1"
+      },
+      {
+        "requirement_id": "TBT-080",
+        "category": "process",
+        "requirement_text": "Minimum service life of equipment",
+        "product_value": "25 years",
+        "tender_value": "20 years",
+        "status": "compliant",
+        "gap_description": null,
+        "risk_level": "low",
+        "source_section": "4.9"
+      },
+      {
+        "requirement_id": "TBT-085",
+        "category": "certification",
+        "requirement_text": "PED compliance for pressure equipment",
+        "product_value": "PED 2014/68/EU (certified)",
+        "tender_value": "PED 2014/68/EU",
+        "status": "compliant",
+        "gap_description": null,
+        "risk_level": "low",
+        "source_section": "6.5"
+      },
+      {
+        "requirement_id": "TBT-090",
+        "category": "instrumentation",
+        "requirement_text": "All instruments with 4-20mA output signal",
+        "product_value": "4-20 mA output on all transmitters",
+        "tender_value": "4-20 mA",
+        "status": "compliant",
+        "gap_description": null,
+        "risk_level": "low",
+        "source_section": "8.2"
+      }
+    ],
+    "summary": {
+      "total_requirements": 25,
+      "compliant_count": 14,
+      "non_compliant_count": 2,
+      "partial_count": 2,
+      "clarification_count": 5,
+      "estimated_total_delta_eur": 0,
+      "disqualifying_gaps": [
+        "[TBT-028] INMETRO certification for Brazil installation: No INMETRO certification found. Product has 6 certifications but none cover INMETRO."
+      ],
+      "key_deviations": [
+        "[TBT-010] Test pressure (hydrostatic): Product offers 4.0 barg but 6 barg is required (gap: 2.00 barg)",
+        "[TBT-028] INMETRO certification for Brazil installation: No INMETRO certification found."
+      ]
+    }
+  },
+  "engine_stats": {
+    "process": 7,
+    "material": 3,
+    "certification": 5,
+    "llm": 10,
+    "total": 25
+  },
+  "extraction_meta": {
+    "product_id": "OWS 5 m3/h Bilge Water Separator",
+    "source_file": "20260312_143354_e2e_anthropic_ocr.json",
+    "extraction_timestamp": "20260312_143354",
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-5-20250929"
+  }
+}

@@ -31,6 +31,13 @@ VALID_COMPONENT_TYPES = {
     "analyzer",
     "alarm",
     "panel",
+    "motor",
+    "actuator",
+    "junction_box",
+    "thermostat",
+    "thermometer",
+    "safety_valve",
+    "plc",
 }
 
 

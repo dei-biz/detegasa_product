@@ -15,6 +15,10 @@ What it does:
     5. Runs tender metadata + process requirement extraction (body sections only)
     6. Parses the TBT Excel and converts deterministically
     7. Reports results, cost breakdown, quality metrics, and timing
+
+Outputs:
+    - product/<timestamp>_e2e_results.json  — full extraction data (components, certs, etc.)
+    - logs/<timestamp>_e2e.log              — complete system log
 """
 
 from __future__ import annotations
@@ -25,6 +29,7 @@ import json
 import logging
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Ensure project root is on path
@@ -34,6 +39,12 @@ sys.path.insert(0, str(project_root))
 from dotenv import load_dotenv
 
 load_dotenv(project_root / ".env", override=True)
+
+# Fix Windows console encoding for Unicode characters (µ, °, etc.)
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if sys.stderr.encoding and sys.stderr.encoding.lower() not in ("utf-8", "utf8"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from src.extraction.chunker import DocumentChunker
 from src.extraction.document_type import detect_document_type
@@ -45,11 +56,55 @@ from src.llm.openai_adapter import OpenAIAdapter
 from src.llm_extraction.product_extractor import ProductExtractor
 from src.llm_extraction.tender_extractor import TenderExtractor
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
-    datefmt="%H:%M:%S",
-)
+
+# ── Output directories ───────────────────────────────────────────────────────
+
+PRODUCT_DIR = project_root / "product"
+LOGS_DIR = project_root / "logs"
+
+# Ensure output directories exist
+PRODUCT_DIR.mkdir(exist_ok=True)
+LOGS_DIR.mkdir(exist_ok=True)
+
+
+# ── Logging setup ────────────────────────────────────────────────────────────
+
+
+def _setup_logging(timestamp: str) -> Path:
+    """Configure logging to both console and timestamped log file.
+
+    Returns the path to the log file.
+    """
+    log_file = LOGS_DIR / f"{timestamp}_e2e.log"
+
+    # Root logger — capture everything
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+
+    # Console handler — INFO level, concise
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)
+    console_fmt = logging.Formatter(
+        "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
+        datefmt="%H:%M:%S",
+    )
+    console_handler.setFormatter(console_fmt)
+
+    # File handler — DEBUG level, verbose with full timestamps
+    file_handler = logging.FileHandler(str(log_file), encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)
+    file_fmt = logging.Formatter(
+        "%(asctime)s | %(levelname)-7s | %(name)-30s | %(funcName)-25s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    file_handler.setFormatter(file_fmt)
+
+    root_logger.addHandler(console_handler)
+    root_logger.addHandler(file_handler)
+
+    return log_file
+
+
 logger = logging.getLogger("e2e")
 
 
@@ -120,6 +175,19 @@ def _print_json(obj, indent: int = 2) -> None:
     print(json.dumps(data, indent=indent, ensure_ascii=False, default=str))
 
 
+def _model_to_dict(obj) -> dict | list | None:
+    """Convert a Pydantic model (or list of models) to serializable dict."""
+    if obj is None:
+        return None
+    if isinstance(obj, list):
+        return [_model_to_dict(item) for item in obj]
+    if hasattr(obj, "model_dump"):
+        return obj.model_dump(mode="json", exclude_none=True)
+    if isinstance(obj, dict):
+        return obj
+    return str(obj)
+
+
 def _format_table_as_text(table: list[list]) -> str:
     """Format an extracted table as readable text for LLM input."""
     rows = [row for row in table if any(cell for cell in row)]
@@ -172,6 +240,7 @@ async def test_product_extraction(adapter, *, use_ocr: bool = False) -> dict:
     metrics["ocr_pages"] = ocr_count
     metrics["pages_with_tables"] = table_count
     metrics["total_tables"] = total_tables
+    metrics["parse_time_s"] = round(parse_time, 2)
 
     # Step 2: Clean text (with TOC detection)
     t0 = time.perf_counter()
@@ -188,6 +257,7 @@ async def test_product_extraction(adapter, *, use_ocr: bool = False) -> dict:
         len(clean_text), clean_time, toc_pages,
     )
     metrics["toc_pages_filtered"] = toc_pages
+    metrics["clean_text_chars"] = len(clean_text)
 
     # Step 2b: Enrich text with table data
     enriched_text = clean_text
@@ -219,6 +289,7 @@ async def test_product_extraction(adapter, *, use_ocr: bool = False) -> dict:
         )
     metrics["total_chunks"] = len(chunks)
     metrics["avg_chunk_chars"] = round(avg_chunk_size)
+    metrics["document_type"] = doc_type.value
 
     # Step 4: LLM extraction
     extractor = ProductExtractor(adapter)
@@ -242,7 +313,8 @@ async def test_product_extraction(adapter, *, use_ocr: bool = False) -> dict:
         if comp.mechanical:
             print(f"    Mechanical: {comp.mechanical}")
 
-    results["components"] = len(components)
+    results["components_count"] = len(components)
+    results["components"] = _model_to_dict(components)
     cost_after_components = extractor.total_cost_usd
 
     # 4b. Performance — use enriched text with tables
@@ -261,7 +333,8 @@ async def test_product_extraction(adapter, *, use_ocr: bool = False) -> dict:
     else:
         logger.warning("Performance extraction returned None")
 
-    results["performance"] = perf is not None
+    results["performance_ok"] = perf is not None
+    results["performance"] = _model_to_dict(perf)
     cost_after_perf = extractor.total_cost_usd
 
     # 4c. Certifications — use enriched text with tables
@@ -278,7 +351,8 @@ async def test_product_extraction(adapter, *, use_ocr: bool = False) -> dict:
         print(f"  [{cert.cert_type.value}] {cert.standard_code} — "
               f"{cert.applicability.value} (by {cert.issuing_body or '?'})")
 
-    results["certifications"] = len(certs)
+    results["certifications_count"] = len(certs)
+    results["certifications"] = _model_to_dict(certs)
 
     # Summary
     print(f"\n--- Product Summary ---")
@@ -312,6 +386,7 @@ async def test_tender_extraction(adapter, *, use_ocr: bool = False) -> dict:
         "Parsed %s: %d pages, %d chars (%.2fs)",
         doc.filename, doc.total_pages, len(doc.full_text), parse_time,
     )
+    metrics["parse_time_s"] = round(parse_time, 2)
 
     # Step 2: Clean (with TOC filtering)
     cleaner = TextCleaner()
@@ -323,6 +398,7 @@ async def test_tender_extraction(adapter, *, use_ocr: bool = False) -> dict:
     clean_text = "\n\n".join(r.text for r in clean_results if r.text.strip() and not r.is_toc)
     logger.info("Cleaned text: %d chars — %d TOC pages filtered", len(clean_text), toc_pages)
     metrics["toc_pages_filtered"] = toc_pages
+    metrics["clean_text_chars"] = len(clean_text)
 
     # Step 3: Chunk (with min/max enforcement and appendix detection)
     doc_type = detect_document_type(doc.filename)
@@ -342,6 +418,7 @@ async def test_tender_extraction(adapter, *, use_ocr: bool = False) -> dict:
     metrics["body_chunks"] = len(body_chunks)
     metrics["appendix_chunks"] = len(appendix_chunks)
     metrics["avg_chunk_chars"] = round(avg_size)
+    metrics["document_type"] = doc_type.value
 
     extractor = TenderExtractor(adapter)
 
@@ -356,7 +433,8 @@ async def test_tender_extraction(adapter, *, use_ocr: bool = False) -> dict:
         _print_json(meta)
     else:
         logger.warning("Metadata extraction failed")
-    results["metadata"] = meta is not None
+    results["metadata_ok"] = meta is not None
+    results["metadata"] = _model_to_dict(meta)
     cost_after_meta = extractor.total_cost_usd
 
     # 4b. Process requirements — search for sections 4-6 (where process data lives)
@@ -390,7 +468,8 @@ async def test_tender_extraction(adapter, *, use_ocr: bool = False) -> dict:
         _print_json(process)
     else:
         logger.warning("Process requirements extraction failed")
-    results["process"] = process is not None
+    results["process_ok"] = process is not None
+    results["process"] = _model_to_dict(process)
     cost_after_process = extractor.total_cost_usd
 
     # 4c. Requirements from body chunks (limit to first 8 body chunks for cost control)
@@ -413,7 +492,8 @@ async def test_tender_extraction(adapter, *, use_ocr: bool = False) -> dict:
     if len(reqs) > 10:
         print(f"  ... and {len(reqs) - 10} more requirements")
 
-    results["requirements"] = len(reqs)
+    results["requirements_count"] = len(reqs)
+    results["requirements"] = _model_to_dict(reqs)
 
     print(f"\n--- Tender Summary ---")
     print(f"  Metadata: {'OK' if meta else 'FAILED'}")
@@ -478,18 +558,27 @@ def test_tbt_deterministic() -> dict:
     print(f"\n  Mandatory: {mandatory}/{len(reqs)}")
 
     results["items_parsed"] = len(items)
-    results["requirements"] = len(reqs)
+    results["requirements_count"] = len(reqs)
+    results["requirements"] = _model_to_dict(reqs)
     results["categories"] = dict(cats)
 
     return results
 
 
-def _save_results(all_results: dict) -> None:
-    """Save results JSON to scripts/e2e_results.json."""
-    output_file = project_root / "scripts" / "e2e_results.json"
+def _save_results(all_results: dict, timestamp: str, args) -> Path:
+    """Save full results JSON to product/ directory.
+
+    Returns the path to the saved file.
+    """
+    # Build filename with key info
+    ocr_tag = "ocr" if args.ocr else "no-ocr"
+    filename = f"{timestamp}_e2e_{args.provider}_{ocr_tag}.json"
+    output_file = PRODUCT_DIR / filename
+
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(all_results, f, indent=2, ensure_ascii=False, default=str)
-    logger.info("Results saved to %s", output_file)
+    logger.info("Full results saved to %s", output_file)
+    return output_file
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
@@ -524,35 +613,63 @@ async def main():
     )
     args = parser.parse_args()
 
+    # Generate timestamp for this run
+    run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Setup logging to file + console
+    log_file = _setup_logging(run_timestamp)
+
     _print_section("E2E EXTRACTION TEST")
     print(f"  Provider: {args.provider}")
     print(f"  Model:    {args.model or 'default'}")
     print(f"  OCR:      {'ON' if args.ocr else 'OFF'}")
     print(f"  Project:  {project_root}")
+    print(f"  Log file: {log_file}")
+
+    logger.info("=== E2E run started: %s ===", run_timestamp)
+    logger.info("Provider: %s, Model: %s, OCR: %s", args.provider, args.model or "default", args.ocr)
 
     # Check Tesseract availability
+    tesseract_available = False
     if args.ocr:
         from src.extraction.pdf_parser import is_tesseract_available
-        if is_tesseract_available():
+        tesseract_available = is_tesseract_available()
+        if tesseract_available:
             print("  Tesseract: AVAILABLE")
+            logger.info("Tesseract OCR: available")
         else:
             print("  Tesseract: NOT FOUND — OCR will be skipped")
+            logger.warning("Tesseract OCR: not found, OCR disabled")
 
-    all_results = {}
+    # Build run metadata for results
+    run_meta = {
+        "timestamp": run_timestamp,
+        "provider": args.provider,
+        "model": args.model or "default",
+        "ocr": args.ocr,
+        "tesseract_available": tesseract_available,
+        "project_root": str(project_root),
+    }
+
+    all_results = {"run": run_meta}
     total_cost = 0.0
+    t_start = time.perf_counter()
 
     # TBT is always free — run it first
     tbt_results = test_tbt_deterministic()
     all_results["tbt"] = tbt_results
 
     if args.tbt_only:
-        _save_results(all_results)
+        all_results["run"]["total_cost"] = 0.0
+        all_results["run"]["total_time_s"] = round(time.perf_counter() - t_start, 2)
+        _save_results(all_results, run_timestamp, args)
         _print_section("DONE (TBT only)")
         return
 
     # Create LLM adapter
     adapter = _make_adapter(args.provider, args.model)
     logger.info("Using %s/%s", adapter.provider, adapter.model)
+    run_meta["model_actual"] = adapter.model
 
     if not args.skip_product:
         product_results = await test_product_extraction(adapter, use_ocr=args.ocr)
@@ -564,21 +681,26 @@ async def main():
         all_results["tender"] = tender_results
         total_cost += tender_results.get("total_cost", 0)
 
+    total_time = time.perf_counter() - t_start
+    run_meta["total_cost"] = round(total_cost, 4)
+    run_meta["total_time_s"] = round(total_time, 2)
+
     # Final summary
     _print_section("FINAL SUMMARY")
     print(f"  Provider: {adapter.provider}")
     print(f"  Model: {adapter.model}")
     print(f"  OCR: {'ON' if args.ocr else 'OFF'}")
     print(f"  Total LLM cost: ${total_cost:.4f}")
+    print(f"  Total time: {total_time:.1f}s")
     print()
 
     if "product" in all_results:
         p = all_results["product"]
         m = p.get("metrics", {})
         print(f"  Product extraction:")
-        print(f"    Components: {p.get('components', '?')}")
-        print(f"    Performance: {p.get('performance', '?')}")
-        print(f"    Certifications: {p.get('certifications', '?')}")
+        print(f"    Components: {p.get('components_count', '?')}")
+        print(f"    Performance: {p.get('performance_ok', '?')}")
+        print(f"    Certifications: {p.get('certifications_count', '?')}")
         print(f"    Cost: ${p.get('total_cost', 0):.4f}")
         if m:
             print(f"    Metrics: {m.get('total_chunks', '?')} chunks, "
@@ -590,9 +712,9 @@ async def main():
         t = all_results["tender"]
         m = t.get("metrics", {})
         print(f"  Tender extraction:")
-        print(f"    Metadata: {t.get('metadata', '?')}")
-        print(f"    Process: {t.get('process', '?')}")
-        print(f"    Requirements: {t.get('requirements', '?')}")
+        print(f"    Metadata: {t.get('metadata_ok', '?')}")
+        print(f"    Process: {t.get('process_ok', '?')}")
+        print(f"    Requirements: {t.get('requirements_count', '?')}")
         print(f"    Cost: ${t.get('total_cost', 0):.4f}")
         if m:
             print(f"    Metrics: {m.get('total_chunks', '?')} chunks "
@@ -603,10 +725,14 @@ async def main():
         tb = all_results["tbt"]
         print(f"  TBT (deterministic):")
         print(f"    Items parsed: {tb.get('items_parsed', '?')}")
-        print(f"    Requirements: {tb.get('requirements', '?')}")
+        print(f"    Requirements: {tb.get('requirements_count', '?')}")
         print(f"    Cost: $0.00")
 
-    _save_results(all_results)
+    output_file = _save_results(all_results, run_timestamp, args)
+    print(f"\n  Results: {output_file}")
+    print(f"  Log:     {log_file}")
+
+    logger.info("=== E2E run completed: %s (%.1fs, $%.4f) ===", run_timestamp, total_time, total_cost)
 
 
 if __name__ == "__main__":

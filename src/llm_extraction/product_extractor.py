@@ -178,8 +178,45 @@ class ProductExtractor:
             except Exception as exc:
                 logger.warning("Failed to extract component from chunk %d: %s", chunk.index, exc)
 
+        components = self._deduplicate_components(components)
         logger.info("Extracted %d components from %d chunks", len(components), len(chunks))
         return components
+
+    @staticmethod
+    def _deduplicate_components(components: list[ComponentSpec]) -> list[ComponentSpec]:
+        """Deduplicate components by tag, keeping the richest version.
+
+        When the same tag appears multiple times (e.g. from a summary page
+        and a detail page), keep the one with the most data.
+        """
+        if not components:
+            return components
+
+        def _richness(c: ComponentSpec) -> int:
+            """Score how much data a component has."""
+            score = len(c.materials)
+            score += len(c.mechanical or {})
+            score += len(c.electrical or {})
+            score += len(c.instrumentation or {})
+            score += len(c.dimensional or {})
+            if c.name:
+                score += 1
+            return score
+
+        best: dict[str, ComponentSpec] = {}
+        for comp in components:
+            key = comp.tag
+            if key in best:
+                if _richness(comp) > _richness(best[key]):
+                    best[key] = comp
+            else:
+                best[key] = comp
+
+        deduped = list(best.values())
+        removed = len(components) - len(deduped)
+        if removed:
+            logger.info("Deduplicated components: %d removed (%d -> %d)", removed, len(components), len(deduped))
+        return deduped
 
     async def extract_performance(self, text: str) -> OWSPerformance | GWTPerformance | None:
         """Extract performance data from document text.

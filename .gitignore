@@ -44,6 +44,10 @@ alembic/versions/__pycache__/
 
 # Logs
 *.log
+logs/
+
+# Generated data (E2E results, etc.)
+product/
 
 # Jupyter
 .ipynb_checkpoints/

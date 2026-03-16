@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DETEGASA Compliance Viewer</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────── -->
+<header class="header">
+    <div class="header-left">
+        <h1 class="header-title">DETEGASA</h1>
+        <span class="header-subtitle">Compliance Viewer</span>
+    </div>
+    <div class="header-right">
+        <span id="file-name" class="file-badge hidden"></span>
+        <label class="btn btn-primary" id="load-btn">
+            <input type="file" id="file-input" accept=".json" hidden>
+            Cargar JSON
+        </label>
+        <button class="btn btn-outline" id="demo-btn">Demo</button>
+    </div>
+</header>
+
+<!-- ── Drop Zone (visible before data is loaded) ──────────────────── -->
+<section id="drop-zone" class="drop-zone">
+    <div class="drop-zone-content">
+        <div class="drop-icon">&#128196;</div>
+        <h2>Cargar resultado de compliance</h2>
+        <p>Arrastra un fichero <code>*_compliance_*.json</code> aqu&iacute; o usa los botones de arriba</p>
+        <p class="drop-hint">Generado por <code>python -m scripts.compliance_test</code></p>
+        <button class="btn btn-outline" id="demo-btn-zone">Cargar datos de demo</button>
+    </div>
+</section>
+
+<!-- ── Main App (hidden until data is loaded) ─────────────────────── -->
+<main id="app" class="app hidden">
+
+    <!-- ── Dashboard ──────────────────────────────────────────────── -->
+    <section class="dashboard">
+
+        <!-- Score Card -->
+        <div class="score-card" id="score-card">
+            <div class="score-value" id="score-value">--</div>
+            <div class="score-label">Score Global</div>
+            <div class="score-ids" id="score-ids"></div>
+        </div>
+
+        <!-- Status Cards -->
+        <div class="status-cards">
+            <div class="status-card status-compliant" id="card-compliant">
+                <div class="card-count">-</div>
+                <div class="card-label">Compliant</div>
+                <div class="card-pct"></div>
+            </div>
+            <div class="status-card status-non-compliant" id="card-non_compliant">
+                <div class="card-count">-</div>
+                <div class="card-label">Non-Compliant</div>
+                <div class="card-pct"></div>
+            </div>
+            <div class="status-card status-partial" id="card-partial">
+                <div class="card-count">-</div>
+                <div class="card-label">Partial</div>
+                <div class="card-pct"></div>
+            </div>
+            <div class="status-card status-clarification" id="card-clarification">
+                <div class="card-count">-</div>
+                <div class="card-label">Clarification</div>
+                <div class="card-pct"></div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="charts-row">
+            <div class="chart-container">
+                <h3>Distribuci&oacute;n de Status</h3>
+                <canvas id="status-chart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Items por Categor&iacute;a</h3>
+                <canvas id="category-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Gaps & Deviations -->
+        <div class="alerts-row" id="alerts-row">
+            <div class="alert-box alert-disqualifying" id="alert-disqualifying">
+                <h3>&#9888;&#65039; Gaps Descalificantes</h3>
+                <ul id="disqualifying-list"></ul>
+            </div>
+            <div class="alert-box alert-deviations" id="alert-deviations">
+                <h3>&#9888; Desviaciones Clave</h3>
+                <ul id="deviations-list"></ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── Filters ────────────────────────────────────────────────── -->
+    <section class="filters-bar">
+        <div class="filter-group">
+            <label class="filter-label">Status</label>
+            <div class="filter-checks" id="status-filters"></div>
+        </div>
+        <div class="filter-group">
+            <label class="filter-label">Categor&iacute;a</label>
+            <div class="filter-checks" id="category-filters"></div>
+        </div>
+        <div class="filter-group">
+            <label class="filter-label">Riesgo</label>
+            <div class="filter-checks" id="risk-filters"></div>
+        </div>
+        <div class="filter-group filter-search">
+            <label class="filter-label">Buscar</label>
+            <input type="text" id="search-input" placeholder="Texto libre..." class="search-input">
+        </div>
+        <div class="filter-group filter-actions">
+            <span class="filter-count" id="filter-count">0 / 0</span>
+            <button class="btn btn-sm btn-outline" id="clear-filters-btn">Limpiar filtros</button>
+            <button class="btn btn-sm btn-outline" id="export-btn">Exportar CSV</button>
+        </div>
+    </section>
+
+    <!-- ── Items Table ────────────────────────────────────────────── -->
+    <section class="table-section">
+        <table class="items-table" id="items-table">
+            <thead>
+                <tr>
+                    <th data-col="requirement_id" class="sortable">ID</th>
+                    <th data-col="source_section" class="sortable">Secci&oacute;n</th>
+                    <th data-col="category" class="sortable">Categor&iacute;a</th>
+                    <th data-col="requirement_text" class="sortable col-wide">Requisito</th>
+                    <th data-col="product_value">Producto</th>
+                    <th data-col="tender_value">Tender</th>
+                    <th data-col="status" class="sortable">Status</th>
+                    <th data-col="risk_level" class="sortable">Riesgo</th>
+                </tr>
+            </thead>
+            <tbody id="items-tbody">
+            </tbody>
+        </table>
+        <div class="table-empty hidden" id="table-empty">
+            No hay items que coincidan con los filtros seleccionados.
+        </div>
+    </section>
+</main>
+
+<!-- ── Detail Panel (slide-in sidebar) ────────────────────────────── -->
+<aside id="detail-panel" class="detail-panel hidden">
+    <div class="detail-header">
+        <h2 id="detail-title">Detalle</h2>
+        <button class="btn-close" id="detail-close">&times;</button>
+    </div>
+    <div class="detail-body" id="detail-body"></div>
+</aside>
+<div id="detail-overlay" class="detail-overlay hidden"></div>
+
+<!-- ── Footer ─────────────────────────────────────────────────────── -->
+<footer id="footer" class="footer hidden">
+    <span id="footer-meta"></span>
+</footer>
+
+<script src="js/app.js"></script>
+</body>
+</html>
